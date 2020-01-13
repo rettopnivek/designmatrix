@@ -3,7 +3,7 @@
 # email: kevin.w.potter@gmail.com
 # Please email me directly if you
 # have any questions or comments
-# Last updated 2019-03-16
+# Last updated 2020-01-13
 
 # Table of contents
 # 1) Internal functions
@@ -388,31 +388,31 @@ check_index = function( index, mtch, type, coding_key ) {
 #'   of coding scheme to apply. Currently the function implements
 #'   5 types:
 #'   \describe{
-#'     \item{Intercept} Generates a column of ones. Keywords
-#'       include 'intercept', 'grand mean', and 'int'.
-#'     \item{Identity} For K levels in the subset of grouping
+#'     \item{Intercept}{Generates a column of ones. Keywords
+#'       include 'intercept', 'grand mean', and 'int'.}
+#'     \item{Identity}{For K levels in the subset of grouping
 #'       variables, generates K columns with a value of one
 #'       for the kth level and zero otherwise. Keywords include
-#'       'identity' or 'I'.
-#'     \item{Dummy} For K levels in the subset of grouping
+#'       'identity' or 'I'.}
+#'     \item{Dummy}{For K levels in the subset of grouping
 #'       variables, generates K - 1 columns. Assigns
 #'       a value of one to the kth group and zero otherwise.
 #'       One level is excluded as a reference group (by
 #'       default the first level) with values set to 0
 #'       across the K - 1 columns. Keywords include
-#'       'dummy', 'treatment', and 'DC'.
-#'     \item{Effect} For K levels in the subset of grouping
+#'       'dummy', 'treatment', and 'DC'.}
+#'     \item{Effect}{For K levels in the subset of grouping
 #'       variables, generates K - 1 columns. Assigns
 #'       a value of one to the kth group and zero otherwise.
 #'       One level is excluded as a reference group (by
 #'       default the first level) with values set to -1
 #'       across the K - 1 columns. Keywords include
 #'       'effect', 'effects', 'sum', 'anova', 'aov', and
-#'       'EC'.
-#'     \item{Linear} For K levels in the subset of grouping
+#'       'EC'.}
+#'     \item{Linear}{For K levels in the subset of grouping
 #'       variables, generates a single column with one to K
 #'       even steps, adjusted to be orthogonal (i.e., sum to
-#'       zero). Keywords include 'linear', 'trend', and 'L'.
+#'       zero). Keywords include 'linear', 'trend', and 'L'.}
 #'   }
 #' @param variables The subset of grouping variables to
 #'   consider when implementing the coding scheme.
@@ -427,7 +427,7 @@ check_index = function( index, mtch, type, coding_key ) {
 #'
 #' @details
 #' \describe{
-#'   \item{Dummy/Treatment coding} For K levels, K - 1 dichotomous
+#'   \item{Dummy/Treatment coding}{For K levels, K - 1 dichotomous
 #'     variables are created where each level of the subset of
 #'     grouping variables is contrasted against a reference level.
 #'     The intercept has a specific interpretation - the mean of the
@@ -439,8 +439,8 @@ check_index = function( index, mtch, type, coding_key ) {
 #'     and 'trt2'. Dummy coding is useful here, setting the 'ctrl'
 #'     level as the reference and creating 2 dichotomous variables
 #'     to estimate the difference between 'ctrl' and 'trt1' and 'trt2'
-#'     respectively.
-#'   \item{Effect/Sum coding} For K levels, K - 1 dichotomous
+#'     respectively.}
+#'   \item{Effect/Sum coding}{For K levels, K - 1 dichotomous
 #'     variables are created where each level of the subset of
 #'     grouping variables is contrasted against the grand mean.
 #'     One level must be specified as a reference, with a value
@@ -451,14 +451,14 @@ check_index = function( index, mtch, type, coding_key ) {
 #'     to the grand mean. The difference between the grand mean
 #'     and the reference level is the negative of the sum of the
 #'     coefficients. This is the typical coding scheme used in
-#'     the linear model underlying analysis of variance (i.e., ANOVA).
-#'   \item{Linear trends} If one can assume the levels of the
+#'     the linear model underlying analysis of variance (i.e., ANOVA).}
+#'   \item{Linear trends}{If one can assume the levels of the
 #'     predictor are evenly spaced (i.e., an interval variable),
 #'     a linear trend can be specified. There are several ways
 #'     to specify a linear trend - here, the trend is specified
 #'     as to be orthogonal, by setting the values as 1 to K and then
 #'     centering them (i.e., subtracting the mean). This means that
-#'     the intercept can be interpreted as the grand mean.
+#'     the intercept can be interpreted as the grand mean.}
 #' }
 #'
 #' @return A matrix, the subset of columns in the summary matrix

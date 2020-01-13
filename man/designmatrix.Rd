@@ -18,8 +18,14 @@ is.designmatrix(x)
 
 \method{summary}{designmatrix}(x)
 
-\method{plot}{designmatrix}(x, intercept = T, exclude_effects = NULL,
-  error_bars = F, average = T, ...)
+\method{plot}{designmatrix}(
+  x,
+  intercept = T,
+  exclude_effects = NULL,
+  error_bars = F,
+  average = T,
+  ...
+)
 
 \method{subset}{designmatrix}(x, summary = T)
 

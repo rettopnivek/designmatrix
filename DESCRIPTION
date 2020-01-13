@@ -14,5 +14,5 @@ LazyData: true
 Imports:
     shiny,
     dplyr
-RoxygenNote: 6.1.0
+RoxygenNote: 7.0.2
 Suggests: testthat
