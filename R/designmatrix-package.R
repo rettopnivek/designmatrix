@@ -8,6 +8,7 @@
 # Package development
 # library(devtools)
 # library(roxygen2)
+# devtools::test()
 
 #' Interfaces for Specifying Design Matrices
 #'
@@ -21,6 +22,6 @@
 #' for statistical analyses (e.g., regression models
 #' with planned contrasts). A complete  list of the
 #' functions available in the package can be obtained
-#' via the command \code{ls(pos = "package:designmatrix")}.
+#' via the command \code{ls.str("package:designmatrix")}.
 #'
 NULL

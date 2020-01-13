@@ -3,7 +3,7 @@
 # email: kevin.w.potter@gmail.com
 # Please email me directly if you
 # have any questions or comments
-# Last updated 2019-03-13
+# Last updated 2019-03-15
 
 # Table of contents
 # 1) designmatrix_gui
@@ -205,26 +205,7 @@ designmatrix_gui = function( df = NULL, select = NULL, dm = NULL, digits = 2 ) {
     # regression coefficients
     output$coef = renderTable({
 
-      sm = cur_dm()$summary_matrix
-      cf = paste( 'B', 0:( ncol(sm) - 1 ), sep = '' )
-      tbl = matrix( " ", nrow( sm ), ncol( sm ) )
-      for ( i in 1:nrow( sm ) ) {
-        for ( j in 1:nrow( sm ) ) {
-
-          if ( sm[i,j] != 0 ) {
-            val = paste( '(', round( sm[i,j], 1 ), ')',
-                         cf[j], sep = '' )
-            if ( j > 1 ) {
-              if ( any( sm[i,-(j:ncol(sm))] != 0 ) ) {
-                val = paste( '+', val )
-              }
-            }
-            tbl[i,j] = val
-          }
-        }
-      }
-      tbl = data.frame( tbl, stringsAsFactors = F )
-      rownames( tbl ) = paste( 'Condition', 1:nrow( sm ) )
+      tbl = cur_dm()$algebra_group_means
       tbl
 
     })

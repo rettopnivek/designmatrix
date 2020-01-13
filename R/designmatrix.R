@@ -3,20 +3,119 @@
 # email: kevin.w.potter@gmail.com
 # Please email me directly if you
 # have any questions or comments
-# Last updated 2019-03-13
+# Last updated 2019-03-15
 
 # Table of contents
-# 1) designmatrix
-# 2) Methods
-#   2.1) is.designmatrix
-#   2.2) print.designmatrix
-#   2.3) summary.designmatrix
-#   2.4) plot.designmatrix
-#   2.5) subset.designmatrix
-#   2.6) subset<-
+# 1) Internal functions
+#   1.1) marginal_means_algebra
+# 2) designmatrix
+# 3) Methods
+#   3.1) is.designmatrix
+#   3.2) print.designmatrix
+#   3.3) summary.designmatrix
+#   3.4) plot.designmatrix
+#   3.5) subset.designmatrix
+#   3.6) subset<-
+#   3.7) data.frame.designmatrix
 
 ###
-### 1)
+### 1) Internal functions
+###
+
+# 1.1)
+marginal_means_algebra = function( dm ) {
+  # Purpose:
+  # Creates a table showing the algebra used
+  # to compute the marginal group means based
+  # on a specified design matrix.
+  # Arguments:
+  # dm - An object of class 'designmatrix'
+  # Returns:
+  # A data frame.
+
+  # Extract summary matrix
+  sm = dm$summary_matrix
+  # Define total number of possible regression
+  # coefficients
+  cf = paste( 'B', 0:( ncol( sm ) - 1 ), sep = '' )
+
+  # Initialize matrix showing algebra for
+  # marginal group means
+  mm = matrix( " ", nrow(sm), ncol(sm) )
+  colnames( mm ) = colnames( sm )
+
+  # Loop over rows
+  for ( i in 1:nrow( mm ) ) {
+
+    # Identify coefficients to exclude
+    sel = sm[i,] == 0
+    # Create display for weights/coefficient values
+    # (round to one decimal place)
+    val = paste( '(',round(sm[i,],1),')', sep = '' )
+    # Add coefficient label
+    res = paste( val, cf )
+    # Specify additive operator when appropriate
+    sel2 = cumsum( !sel ) > 1
+    if ( any( sel2 ) ) {
+      res[sel2] = paste( '+', res[sel2] )
+    }
+    mm[i,!sel] = res[!sel]
+
+    # Remove weights of 1
+    mm[i,] = gsub( '(1) ', '', mm[i,], fixed = T )
+    # Remove weights of -1 and update operator
+    mm[i,] = gsub( '+ (-1) ', '- ', mm[i,], fixed = T )
+
+  }
+  # Convert to data frame
+  mm = data.frame( mm, stringsAsFactors = F )
+
+
+  # Determine labels and weights for overall average
+  avg = colSums( sm )/nrow( sm )
+  # Identify coefficients to exclude
+  sel = avg == 0
+  # Round to one decimal place
+  avg = round( avg, 1 )
+  # Create display for weights/coefficient values
+  avg = paste( '(', avg, ')', sep = '' )
+  # Add coefficient label
+  fin_avg = paste( avg, cf )
+  # Specify additive operator when appropriate
+  sel2 = cumsum( !sel ) > 1
+  if ( any( sel2 ) ) {
+    fin_avg[sel2] = paste( '+', fin_avg[sel2] )
+  }
+  fin_avg[sel] = " "
+
+  # Remove weights of 1
+  fin_avg = gsub( '(1) ', '', fin_avg, fixed = T )
+  # Remove weights of -1 and update operator
+  fin_avg = gsub( '+ (-1) ', '- ', fin_avg, fixed = T )
+
+  # Add grouping variables
+  mm = cbind( dm$group_means[,dm$variables],
+              mm )
+  # Convert everything to character strings
+  for ( i in 1:ncol(mm) ) mm[[i]] = as.character( mm[[i]] )
+  # Add overall average
+  tmp = character( length( dm$variables ) )
+  tmp[ length( tmp ) ] = 'Avg.'
+  tmp = c( tmp, fin_avg )
+  names( tmp ) = colnames( mm )
+  # Add separator for overall average
+  tmp2 = rep( '-', ncol( mm ) )
+  names( tmp2 ) = colnames( mm )
+  mm = rbind( mm, tmp2, tmp )
+
+  if ( length( dm$variables ) == 1 )
+    colnames( mm )[1] = dm$variables[1]
+
+  return( mm )
+}
+
+###
+### 2)
 ###
 
 #' Initialize and Update Design Matrices
@@ -35,6 +134,9 @@
 #'     \item The column name for the dependent variable.
 #'     \item The set of column names for the grouping variables.
 #'   }
+#'   If only the column name for the dependent variable is provided,
+#'   the function assumes all remaining columns are the set of
+#'   grouping variables.
 #' @param dm An object of class \code{designmatrix}. If provided,
 #'   the function will update the object based on the specifications
 #'   of the \code{summary_matrix} element.
@@ -76,27 +178,21 @@
 #' summary( dm )
 #'
 #' # Specify design matrix
-#' # Intercept
-#' subset( dm )[,1] = 1
 #' # Main effect of treatment 1
 #' subset( dm )[1:2,2] = c(-1,1)
 #' # Main effect of treatment 2
 #' subset( dm )[c(1,3),3] = c(-1,1)
 #'
 #' # Update summaries and full design matrix
-#' dm = designmatrix( dm = dm )
+#' dm = designmatrix( dm )
 #'
 #' # Example of methods
 #' print( dm )
 #' plot( dm, intercept = T, error_bars = T, exclude_effects = c( 'X2', 'X3' ) )
 #'
 #' # Example analysis
-#' dtba = data.frame( y = PlantGrowth$weight )
-#' # Extract the full design matrix
-#' X = subset( dm, F )
-#' # Create data to be analyzed
-#' dtba = cbind( dtba, X )
-#' lmf = lm( y ~ -1 + ., data = dtba )
+#' dtba = getdata( dm )
+#' lmf = lm( DV ~ -1 + ., data = dtba )
 #'
 #' @export
 
@@ -108,77 +204,235 @@ designmatrix = function( df = NULL,
   # Labels for descriptive statistics
   ds_vrb = c( 'M', 'SD', 'SEM', 'N' )
 
-  if ( !is.null( df ) ) {
+  # Check if 'df' input is provided
+  if ( !is.null( df ) ) { # Open (1)
 
-    if ( !is.null( select ) ) {
+    # If is of class 'designmatrix' proceed to next segment
+    if ( is.designmatrix( df ) ) {
 
+      dm = df
+
+    } else { # Open (2)
+
+      # Check input is a data frame
+      if ( !is.data.frame( df ) ) {
+        stop( paste(
+          "Either need 1) a data frame of conditions and observations",
+          "(and a list with at least the column name for the dependent",
+          "variable), or 2) an object of class 'designmatrix'"
+        ), call. = FALSE )
+
+      }
+
+      # Define error message to return for issues related
+      # to the 'select' input
+      err_msg = function( type = 1 ) {
+
+        if ( type == 1 ) {
+          stop( paste(
+            "Provide a list giving 1) the dependent variable name,",
+            "and 2) the set of names for the grouping variables" ),
+            call. = F )
+        }
+        if ( type == 2 ) {
+          warning( paste(
+            "Only first element in character string was used",
+            "as column name for dependent variable"
+          ), call. = FALSE )
+        }
+        if ( type == 3 ) {
+          stop( paste(
+            "At least some provided column names are",
+            "not present in data frame"
+          ), call. = FALSE )
+        }
+      }
+
+      # Initialize variables
       DV = NULL
       vrb = NULL
 
-      if ( length( select ) >= 2 ) {
+      # If no 'select' input is provided
+      if ( is.null( select ) ) {
+        err_msg()
+      } else { # Open (3)
 
-        DV = select[[1]][1]
-        vrb = select[[2]]
+        # If a character string is provided
+        # convert it to a list
+        if ( is.character( select ) ) {
+          if ( length( select ) == 1 ) {
+            select = list( select )
+          } else {
+            select = list( select[1] )
+            err_msg( type = 2 )
+          }
+        }
+
+        # If 'select' input is not a list
+        if ( !is.list( select ) ) {
+          err_msg()
+        } else { # Open (4)
+
+          # If excess list elements are provided
+          if ( length( select ) > 2 ) {
+            warning( paste(
+              "Excess list elements provided when",
+              "specifying dependent and grouping",
+              "variables"
+            ), call. = FALSE )
+          }
+
+          # Extract dependent variable
+          DV = select[[1]][1]
+          if ( length( select[[1]] ) > 1 ) {
+            err_msg( type = 2 )
+          }
+
+          cn = colnames( df )
+
+          # If no other elements provided in data frame
+          if ( length( cn ) == 1 ) {
+            stop( paste(
+              "Data frame should have both a dependent",
+              "variable and at least one grouping variable"
+            ), call. = FALSE )
+          }
+
+          # If provided name is not in column names
+          if ( !( DV %in% cn ) ) {
+            err_msg( type = 3 )
+          } else { # Open (5)
+
+            # If only one element, assume
+            # remaining columns are grouping variables
+            if ( length( select ) == 1 ) {
+              vrb = cn[ cn != DV ]
+            } else {
+              vrb = select[[2]]
+            }
+
+            # If grouping variables are not in data frame
+            if ( !all( vrb %in% cn ) ) {
+              err_msg( type = 3 )
+            }
+
+          } # Close (5)
+
+        } # Close (4)
+
+        # Final check to make sure a dependent variable
+        # and set of grouping variables were extracted
+        if ( is.null( DV ) | is.null( vrb ) ) {
+          err_msg()
+        }
+
+      } # Close (3)
+
+      # Check if any of the selected columns have
+      # names that overlap with the descriptive statistics
+      comp = c( ds_vrb, 'DV' )
+
+      # For dependent variable
+      if ( DV %in% comp ) {
+
+        orig_DV = DV
+        sel = colnames( df ) %in% DV
+        colnames( df )[sel] = paste( DV, '2', sep = '.' )
+        DV = paste( DV, '2', sep = '.' )
+
+        warning( paste(
+          "Changed", orig_DV, "to", DV,
+          "to avoid conflict with labels for descriptive statistics"
+        ), call. = FALSE )
 
       }
 
-      if ( length( select ) == 1 ) {
-        DV = select[[1]][1]
-        vrb = colnames( df )[ colnames( df ) != DV ]
+      # For grouping variables
+      if ( any( vrb %in% comp ) ) {
+
+        orig_vrb = vrb
+        sel1 = vrb %in% comp
+        sel2 = colnames( df ) %in% vrb[sel1]
+        colnames( df )[sel2] = paste( vrb[sel1], '2', sep = '.' )
+        vrb[sel1] = paste( vrb[sel1], '2', sep = '.' )
+
+        if ( sum(sel1) > 1 ) {
+
+          string = c(
+            paste( '{', paste( orig_vrb[sel1], collapse = ', ' ), '}', sep = '' ),
+            paste( '{', paste( vrb[sel1], collapse = ', ' ), '}', sep = '' )
+          )
+
+          warning( paste(
+            "Changed", string[1], "to", string[2],
+            "to avoid conflict with labels for descriptive statistics"
+          ), call. = FALSE )
+        } else {
+          warning( paste(
+            "Changed", orig_vrb[sel1], "to", vrb[sel1],
+            "to avoid conflict with labels for descriptive statistics"
+          ), call. = FALSE )
+        }
+
       }
 
-    } else {
-      stop( paste(
-        "Provide a list giving 1) the dependent variable name,",
-        "and 2) the set of names for the independent variables." ),
-        call. = F )
-    }
+      # Generic name for dependent variable
+      df$DV = df[[ DV ]]
 
-    # Generic name for dependent variable
-    df$DV = df[[ DV ]]
+      # Summary of group means based on
+      # subset of grouping variables
+      sm = df %>%
+        group_by_at( vars(one_of(vrb)) ) %>%
+        summarize(
+          M = round( mean( DV ), digits = digits ),
+          SD = round( sd( DV ), digits = digits ),
+          SEM = round( sd( DV )/sqrt( length( DV ) ), digits = digits ),
+          N = length( DV )
+        ) %>%
+        as.data.frame()
 
-    # Summary of group means based on
-    # subset of grouping variables
-    sm = df %>%
-      group_by_at( vars(one_of(vrb)) ) %>%
-      summarize(
-        M = round( mean( DV ), digits = digits ),
-        SD = round( sd( DV ), digits = digits ),
-        SEM = round( sd( DV )/sqrt( length( DV ) ), digits = digits ),
-        N = length( DV )
-      ) %>%
-      as.data.frame()
+      # Initialize design matrix
+      DM = matrix( 0, nrow( df ), nrow( sm ) )
+      DM[,1] = 1 # By default, set first column as an intercept
+      colnames( DM ) = paste( 'X', 1:nrow( sm ), sep = '' )
+      # Initialize summary matrix
+      X = matrix( 0, nrow( sm ), nrow( sm ) )
+      X[,1] = 1 # By default, set first column as an intercept
+      colnames( X ) = paste( 'X', 1:nrow( sm ), sep = '' )
 
-    # Initialize design matrix
-    DM = matrix( 0, nrow( df ), nrow( sm ) )
-    colnames( DM ) = paste( 'X', 1:nrow( sm ), sep = '' )
-    # Initialize summary matrix
-    X = matrix( 0, nrow( sm ), nrow( sm ) )
-    colnames( X ) = paste( 'X', 1:nrow( sm ), sep = '' )
+      out = list(
+        group_means = sm,
+        summary_matrix = X,
+        design_matrix = DM,
+        combined = cbind( sm, X ),
+        data = df,
+        dv = DV,
+        variables = vrb,
+        algebra_group_means = NULL
+      )
+      out$combined = out$combined[ , !(colnames( out$combined ) %in% ds_vrb) ]
+      # Determine algebra for marginal means
+      out$algebra_group_means =
+        marginal_means_algebra( out )
+      class( out ) = "designmatrix"
 
-    out = list(
-      group_means = sm,
-      summary_matrix = X,
-      design_matrix = DM,
-      combined = cbind( sm, X ),
-      data = df,
-      dv = DV,
-      variables = vrb
-    )
-    out$combined = out$combined[ , !(colnames( out$combined ) %in% ds_vrb) ]
-    class( out ) = "designmatrix"
-    return( out )
-  }
+      return( out )
 
-  if ( !is.null( dm ) ) {
+    } # Close (2)
 
-    if ( is.designmatrix( dm ) ) {
+  } # Close (1)
+
+  # If a object of class 'designmatrix' is provided,
+  # update based on summary matrix
+  if ( !is.null( dm ) ) { # Open (1)
+
+    if ( is.designmatrix( dm ) ) { # Open (2)
 
       df = dm$data
       X = dm$summary_matrix
       DM = dm$design_matrix
       sm = dm$group_means
-      nc = ncol( sm ) - 4
+      nc = ncol( sm ) - length( ds_vrb )
       vrb = colnames( sm )[1:nc]
 
       for ( i in 1:nrow( sm ) ) {
@@ -194,30 +448,31 @@ designmatrix = function( df = NULL,
       dm$design_matrix = DM
       dm$combined = cbind( sm, X )
       dm$combined = dm$combined[ , !(colnames( dm$combined ) %in% ds_vrb) ]
+      dm$algebra_group_means =
+        marginal_means_algebra( dm )
 
       return( dm )
 
     } else {
       stop( "Input must be a 'designmatrix' object.",
             call. = F )
-    }
+    } # Close (2)
 
-  }
-
+  } # Close (1)
 }
 
 ###
-### 2) Methods
+### 3) Methods
 ###
 
-# 2.1)
+# 3.1)
 #' @rdname designmatrix
 #' @export
 
 is.designmatrix = function( x )
   inherits( x, "designmatrix" )
 
-# 2.2)
+# 3.2)
 #' @rdname designmatrix
 #' @export
 
@@ -225,15 +480,15 @@ print.designmatrix = function( x ) {
   print( x$combined )
 }
 
-# 2.3)
+# 3.3)
 #' @rdname designmatrix
 #' @export
 
 summary.designmatrix = function( x ) {
-  print( x$group_means )
+  return( x$group_means )
 }
 
-# 2.4)
+# 3.4)
 #' @rdname designmatrix
 #' @export
 
@@ -241,6 +496,7 @@ plot.designmatrix = function( x,
                               intercept = T,
                               exclude_effects = NULL,
                               error_bars = F,
+                              average = T,
                               ... ) {
 
   df = x$data
@@ -312,6 +568,10 @@ plot.designmatrix = function( x,
     axis( 1, 1:nrow( x$combined ) )
   }
 
+  if ( average ) {
+    abline( h = mean( x$group_means$M ), lty = 2 )
+  }
+
   if ( any( sel ) ) {
 
     points( 1:length( prd ),
@@ -332,9 +592,31 @@ plot.designmatrix = function( x,
 
   }
 
+  # Extract plotting dimensions
+  plt_dm = par('usr')
+
+  # Add legend
+  legend( plt_dm[1],
+          plt_dm[4] + diff( plt_dm[3:4] )*.1,
+          c( 'Observed',
+             'Predicted',
+             'Predicted - excluded'
+          ),
+          pch = c( 19, 21, 21 ),
+          col = c( 'black',
+                   'black',
+                   'blue' ),
+          horiz = T,
+          bty = 'n',
+          xpd = T
+        )
+
+  # legend(
+  # )
+
 }
 
-# 2.5)
+# 3.5)
 #' @rdname designmatrix
 #' @export
 
@@ -351,12 +633,61 @@ subset.designmatrix = function( x, summary = T ) {
   }
 }
 
-# 2.6)
+# 3.6)
 #' @rdname designmatrix
 #' @export
 
-`subset<-` = function(x, value) {
-  x$summary_matrix <- value
-  x
+`subset<-` = function( x, value, update = F ) {
+
+  if ( !is.designmatrix( x ) ) {
+    err_msg = paste( "Object being subsetted",
+                     "must be of class",
+                     "'designmatrix'" )
+    stop( err_msg, call. = F )
+  }
+
+  if ( !is.matrix( value ) ) {
+    err_msg = paste( "Input must be a matrix" )
+    stop( err_msg, call. = F )
+  }
+
+  sm.nr = nrow( x$summary_matrix )
+  sm.nc = ncol( x$summary_matrix )
+
+  nr = nrow( value )
+  nc = ncol( value )
+
+  if ( nr != sm.nr ) {
+    err_msg = paste( "Input must have same number of rows" )
+    stop( err_msg, call. = F )
+  }
+
+  if ( nc > sm.nc ) {
+    err_msg = paste( "Input cannot have more columns" )
+    stop( err_msg, call. = F )
+  }
+
+  if ( nc == sm.nc ) {
+    x$summary_matrix <- value
+    if ( update ) x = designmatrix( x )
+    return(x)
+  }
+
+  if ( nc < sm.nc ) {
+
+    cn = colnames( value )
+    sm.cn = colnames( x$summary_matrix )
+
+    if ( all( cn %in% sm.cn ) ) {
+      x$summary_matrix[,cn] <- value
+      if ( update ) x = designmatrix( x )
+      return(x)
+    } else {
+      err_msg = paste( "Column names must match" )
+      stop( err_msg, call. = F )
+    }
+
+  }
+
 }
 

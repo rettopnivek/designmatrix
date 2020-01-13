@@ -19,11 +19,11 @@ is.designmatrix(x)
 \method{summary}{designmatrix}(x)
 
 \method{plot}{designmatrix}(x, intercept = T, exclude_effects = NULL,
-  error_bars = F, ...)
+  error_bars = F, average = T, ...)
 
 \method{subset}{designmatrix}(x, summary = T)
 
-subset(x) <- value
+subset(x, update = F) <- value
 }
 \arguments{
 \item{df}{A data frame with the observations for
@@ -33,7 +33,10 @@ the dependent variable and associated grouping variables.}
 \enumerate{
   \item The column name for the dependent variable.
   \item The set of column names for the grouping variables.
-}}
+}
+If only the column name for the dependent variable is provided,
+the function assumes all remaining columns are the set of
+grouping variables.}
 
 \item{dm}{An object of class \code{designmatrix}. If provided,
 the function will update the object based on the specifications
@@ -86,26 +89,20 @@ dm = designmatrix( PlantGrowth, list( 'weight', 'group' ) )
 summary( dm )
 
 # Specify design matrix
-# Intercept
-subset( dm )[,1] = 1
 # Main effect of treatment 1
 subset( dm )[1:2,2] = c(-1,1)
 # Main effect of treatment 2
 subset( dm )[c(1,3),3] = c(-1,1)
 
 # Update summaries and full design matrix
-dm = designmatrix( dm = dm )
+dm = designmatrix( dm )
 
 # Example of methods
 print( dm )
 plot( dm, intercept = T, error_bars = T, exclude_effects = c( 'X2', 'X3' ) )
 
 # Example analysis
-dtba = data.frame( y = PlantGrowth$weight )
-# Extract the full design matrix
-X = subset( dm, F )
-# Create data to be analyzed
-dtba = cbind( dtba, X )
-lmf = lm( y ~ -1 + ., data = dtba )
+dtba = getdata( dm )
+lmf = lm( DV ~ -1 + ., data = dtba )
 
 }
