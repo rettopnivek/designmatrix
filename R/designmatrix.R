@@ -435,15 +435,39 @@ designmatrix = function( df = NULL,
       nc = ncol( sm ) - length( ds_vrb )
       vrb = colnames( sm )[1:nc]
 
-      for ( i in 1:nrow( sm ) ) {
-        sel = logical( nrow( df ) )
-        for ( j in 1:nrow( df ) ) {
-          sel[j] = all( df[j,vrb] == sm[i,vrb] )
+      nrow_sm = nrow( sm )
+      nrow_df = nrow( df )
+      n_vrb = length( vrb )
+      log_val = rep( F, n_vrb )
+
+      sm = as.list( sm )
+      df = as.list( df )
+
+      # Loop over rows of summary matrix
+      for ( i in 1:nrow_sm ) {
+
+        sel = logical( nrow_df )
+
+        # Loop over rows for data
+        for ( j in 1:nrow_df ) {
+
+          # Loop over subset of columns
+          for ( k in 1:n_vrb ) {
+            # Identify which row of summary matrix current
+            # column matches
+            log_val[k] = df[[ vrb[k] ]][j] == sm[[ vrb[k] ]][i]
+          }
+          sel[j] = all( log_val )
+
         }
         DM[sel,] = matrix( X[i,], sum(sel), ncol( X ), byrow = T )
 
       }
       colnames( DM ) = colnames( X )
+
+      # Convert back to data frames
+      sm = data.frame( sm, stringsAsFactors = F )
+      df = data.frame( df, stringsAsFactors = F )
 
       dm$design_matrix = DM
       dm$combined = cbind( sm, X )
@@ -609,7 +633,7 @@ plot.designmatrix = function( x,
           horiz = T,
           bty = 'n',
           xpd = T
-        )
+  )
 
   # legend(
   # )
